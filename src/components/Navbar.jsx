@@ -24,15 +24,17 @@ export default function Navbar({
         <div className="flex items-center gap-1 sm:gap-2">
           {dbStatus && (
             <span
-              className={`hidden md:inline-flex chip h-8 px-3 mr-1 ${
-                dbStatus.connected
-                  ? 'bg-success-soft text-success-soft-foreground'
-                  : 'bg-warning-soft text-warning-soft-foreground'
-              }`}
-              title={dbStatus.mode || 'Database status'}
+              role="img"
+              aria-label={dbStatus.connected ? 'Database connected' : 'Using demo data'}
+              title={dbStatus.connected ? 'MongoDB connected' : 'Demo data (database offline)'}
+              className="hidden md:flex relative size-10 items-center justify-center text-muted-foreground"
             >
-              <Database className="size-3.5" />
-              {dbStatus.connected ? 'MongoDB live' : 'Demo data'}
+              <Database className="size-5" />
+              <span
+                className={`absolute top-2 right-2 size-2 rounded-full ring-2 ring-surface ${
+                  dbStatus.connected ? 'bg-success' : 'bg-accent'
+                }`}
+              />
             </span>
           )}
 
@@ -41,12 +43,14 @@ export default function Navbar({
             onClick={onToggleWeather}
             aria-pressed={isWeatherOpen}
             aria-label="Weather planner"
-            className={`btn px-2.5 sm:px-3 ${
-              isWeatherOpen ? 'bg-accent-soft text-accent-soft-foreground' : 'btn-ghost'
+            title="Weather planner"
+            className={`icon-btn ${
+              isWeatherOpen
+                ? 'bg-accent-soft text-accent-soft-foreground hover:bg-accent-soft hover:text-accent-soft-foreground'
+                : ''
             }`}
           >
             <CloudSun className="size-5" />
-            <span className="hidden sm:inline">Weather</span>
           </button>
 
           <button
@@ -54,10 +58,10 @@ export default function Navbar({
             onClick={onToggleGitHub}
             aria-haspopup="dialog"
             aria-label="Import GitHub issues"
-            className="btn btn-ghost px-2.5 sm:px-3"
+            title="Import GitHub issues"
+            className="icon-btn"
           >
             <GithubIcon className="size-5" />
-            <span className="hidden sm:inline">GitHub</span>
           </button>
 
           <button
