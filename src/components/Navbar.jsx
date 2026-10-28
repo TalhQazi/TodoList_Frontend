@@ -1,108 +1,73 @@
 import React from 'react';
-import {
-  CheckSquare,
-  Plus,
-  CloudSun,
-  Database,
-  Sparkles,
-  RefreshCw,
-} from 'lucide-react';
-
-const GithubIcon = ({ className = 'w-4 h-4' }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-  </svg>
-);
+import { Check, Plus, CloudSun, Database } from 'lucide-react';
+import GithubIcon from './GithubIcon';
 
 export default function Navbar({
   onOpenCreateModal,
   onToggleWeather,
   isWeatherOpen,
   onToggleGitHub,
-  isGitHubOpen,
   dbStatus,
-  onRefresh,
-  isLoading,
 }) {
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-slate-900/80 border-b border-slate-800/80 shadow-lg shadow-black/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30">
-            <CheckSquare className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent tracking-tight">
-                TaskMaster
-              </span>
-              <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                PRO
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 hidden sm:block">
-              Full Stack REST & Database Suite
-            </p>
-          </div>
-        </div>
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-surface">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+        <a href="/" className="flex items-center gap-2.5 rounded-lg min-w-0">
+          <span className="flex items-center justify-center size-9 shrink-0 rounded-lg bg-primary text-primary-foreground">
+            <Check className="size-5" strokeWidth={3} />
+          </span>
+          <span className="text-lg font-bold tracking-tight text-foreground truncate max-[359px]:sr-only">
+            TaskMaster
+          </span>
+        </a>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div
-            className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
-              dbStatus?.connected
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
-                : 'bg-amber-950/40 text-amber-300 border-amber-800/60'
-            }`}
-            title={dbStatus?.mode || 'Database Status'}
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>{dbStatus?.connected ? 'MongoDB Live' : 'Demo DB Mode'}</span>
+        <div className="flex items-center gap-1 sm:gap-2">
+          {dbStatus && (
             <span
-              className={`w-2 h-2 rounded-full ${
-                dbStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+              className={`hidden md:inline-flex chip h-8 px-3 mr-1 ${
+                dbStatus.connected
+                  ? 'bg-success-soft text-success-soft-foreground'
+                  : 'bg-warning-soft text-warning-soft-foreground'
               }`}
-            />
-          </div>
+              title={dbStatus.mode || 'Database status'}
+            >
+              <Database className="size-3.5" />
+              {dbStatus.connected ? 'MongoDB live' : 'Demo data'}
+            </span>
+          )}
 
           <button
+            type="button"
             onClick={onToggleWeather}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 border ${
-              isWeatherOpen
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-lg shadow-amber-500/10'
-                : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white'
+            aria-pressed={isWeatherOpen}
+            aria-label="Weather planner"
+            className={`btn px-2.5 sm:px-3 ${
+              isWeatherOpen ? 'bg-accent-soft text-accent-soft-foreground' : 'btn-ghost'
             }`}
           >
-            <CloudSun className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Weather API</span>
+            <CloudSun className="size-5" />
+            <span className="hidden sm:inline">Weather</span>
           </button>
 
           <button
+            type="button"
             onClick={onToggleGitHub}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 border ${
-              isGitHubOpen
-                ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-lg shadow-purple-500/10'
-                : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white'
-            }`}
+            aria-haspopup="dialog"
+            aria-label="Import GitHub issues"
+            className="btn btn-ghost px-2.5 sm:px-3"
           >
-            <GithubIcon className="w-4 h-4 text-purple-400" />
-            <span className="hidden sm:inline">GitHub Sync</span>
+            <GithubIcon className="size-5" />
+            <span className="hidden sm:inline">GitHub</span>
           </button>
 
           <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-700 transition"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
-          </button>
-
-          <button
+            type="button"
             onClick={onOpenCreateModal}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-xs sm:text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 transition-all duration-200 active:scale-95 cursor-pointer"
+            aria-label="New task"
+            className="btn btn-primary ml-1 px-3 sm:px-4"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Add Task</span>
+            <Plus className="size-5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">New task</span>
           </button>
         </div>
       </div>

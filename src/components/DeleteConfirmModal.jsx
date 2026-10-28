@@ -1,5 +1,6 @@
-import React from 'react';
-import { AlertTriangle, Trash2, X } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Trash2, Loader2 } from 'lucide-react';
+import Dialog from './Dialog';
 
 export default function DeleteConfirmModal({
   isOpen,
@@ -8,60 +9,63 @@ export default function DeleteConfirmModal({
   onClose,
   isDeleting,
 }) {
-  if (!isOpen) return null;
+  const cancelRef = useRef(null);
+
+  const handleClose = () => {
+    if (!isDeleting) onClose();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-bold text-white">Delete Task</h3>
-          <p className="mt-1 text-xs sm:text-sm text-slate-400">
-            Are you sure you want to permanently delete{' '}
-            <span className="font-semibold text-slate-200">"{taskTitle}"</span>? This
-            action cannot be undone.
+    <Dialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      role="alertdialog"
+      labelledBy="delete-task-title"
+      describedBy="delete-task-desc"
+      initialFocusRef={cancelRef}
+      className="max-w-md"
+    >
+      <div className="flex gap-4 p-5 sm:p-6">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger-soft-foreground">
+          <Trash2 className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <h2 id="delete-task-title" className="text-lg font-semibold text-foreground">
+            Delete this task?
+          </h2>
+          <p id="delete-task-desc" className="mt-1 text-sm text-muted-foreground break-words">
+            <span className="font-medium text-foreground">“{taskTitle}”</span> will be permanently
+            removed. This can’t be undone.
           </p>
         </div>
-
-        <div className="pt-2 flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            disabled={isDeleting}
-            className="px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isDeleting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-rose-600/30 transition disabled:opacity-50 cursor-pointer"
-          >
-            {isDeleting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Deleting...</span>
-              </>
-            ) : (
-              <>
-                <Trash2 className="w-4 h-4" />
-                <span>Delete Task</span>
-              </>
-            )}
-          </button>
-        </div>
       </div>
-    </div>
+
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-border px-5 py-4 sm:px-6">
+        <button
+          ref={cancelRef}
+          type="button"
+          onClick={handleClose}
+          disabled={isDeleting}
+          className="btn btn-secondary"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={isDeleting}
+          className="btn btn-danger min-w-32"
+        >
+          {isDeleting ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Deleting…
+            </>
+          ) : (
+            'Delete task'
+          )}
+        </button>
+      </div>
+    </Dialog>
   );
 }
-

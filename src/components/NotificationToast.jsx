@@ -1,6 +1,12 @@
 import React, { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
+const TOAST_STYLES = {
+  success: { icon: CheckCircle2, className: 'text-success' },
+  error: { icon: AlertCircle, className: 'text-danger' },
+  info: { icon: Info, className: 'text-primary' },
+};
+
 export default function NotificationToast({ toast, onClose }) {
   useEffect(() => {
     if (toast) {
@@ -11,42 +17,32 @@ export default function NotificationToast({ toast, onClose }) {
     }
   }, [toast, onClose]);
 
-  if (!toast) return null;
-
-  const isSuccess = toast.type === 'success';
-  const isError = toast.type === 'error';
+  const style = TOAST_STYLES[toast?.type] || TOAST_STYLES.info;
+  const Icon = style.icon;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl animate-bounce-short">
-      <div
-        className={`p-1.5 rounded-xl ${
-          isSuccess
-            ? 'text-emerald-400 bg-emerald-500/10'
-            : isError
-            ? 'text-rose-400 bg-rose-500/10'
-            : 'text-indigo-400 bg-indigo-500/10'
-        }`}
-      >
-        {isSuccess ? (
-          <CheckCircle2 className="w-5 h-5" />
-        ) : isError ? (
-          <AlertCircle className="w-5 h-5" />
-        ) : (
-          <Info className="w-5 h-5" />
-        )}
-      </div>
-
-      <p className="text-xs sm:text-sm font-medium text-white pr-2">
-        {toast.message}
-      </p>
-
-      <button
-        onClick={onClose}
-        className="p-1 rounded-lg text-slate-400 hover:text-white transition"
-      >
-        <X className="w-4 h-4" />
-      </button>
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-end sm:p-6"
+    >
+      {toast && (
+        <div
+          key={toast.id}
+          className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-border bg-surface p-3.5 shadow-lg shadow-black/10 animate-toast-in"
+        >
+          <Icon className={`mt-0.5 size-5 shrink-0 ${style.className}`} />
+          <p className="flex-1 text-sm font-medium text-foreground break-words">{toast.message}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Dismiss notification"
+            className="icon-btn -my-1.5 -mr-1.5 size-8"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
-

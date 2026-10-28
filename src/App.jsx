@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Navbar from './components/Navbar';
 import TaskStats from './components/TaskStats';
 import FilterBar from './components/FilterBar';
@@ -8,6 +8,7 @@ import DeleteConfirmModal from './components/DeleteConfirmModal';
 import WeatherWidget from './components/WeatherWidget';
 import GitHubSyncModal from './components/GitHubSyncModal';
 import NotificationToast from './components/NotificationToast';
+import useDebouncedValue from './hooks/useDebouncedValue';
 import {
   getTasks,
   createTask,
@@ -16,11 +17,21 @@ import {
   toggleTaskCompleted,
   getSystemHealth,
 } from './services/api';
-import {
-  Plus,
-  Inbox,
-  AlertCircle,
-} from 'lucide-react';
+import { Plus, Inbox, SearchX, AlertCircle } from 'lucide-react';
+
+const DEFAULT_FILTERS = {
+  search: '',
+  status: 'all',
+  priority: 'all',
+  category: 'all',
+  sortBy: 'newest',
+};
+
+const TODAY_LABEL = new Date().toLocaleDateString(undefined, {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+});
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -28,57 +39,79 @@ export default function App() {
   const [error, setError] = useState(null);
   const [dbStatus, setDbStatus] = useState(null);
 
-  const [filters, setFilters] = useState({
-    search: '',
-    status: 'all',
-    priority: 'all',
-    category: 'all',
-    sortBy: 'newest',
-  });
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState('list');
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
+  const { status, priority, category, sortBy } = filters;
+  const queryParams = useMemo(
+    () => ({ search: debouncedSearch, status, priority, category, sortBy }),
+    [debouncedSearch, status, priority, category, sortBy]
+  );
+  const requestId = useRef(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deletingTask, setDeletingTask] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isWeatherOpen, setIsWeatherOpen] = useState(true);
+  const [isWeatherOpen, setIsWeatherOpen] = useState(
+    () => window.matchMedia('(min-width: 1024px)').matches
+  );
   const [isGitHubOpen, setIsGitHubOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {
-    setToast({ message, type });
+    setToast({ id: Date.now(), message, type });
   };
+
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const checkDb = useCallback(async () => {
     try {
       const res = await getSystemHealth();
       setDbStatus(res.database);
-    } catch (err) {
+    } catch {
       setDbStatus({ connected: false, mode: 'Fallback API' });
     }
   }, []);
 
   const fetchTaskList = useCallback(async () => {
+    const current = ++requestId.current;
     try {
       setLoading(true);
       setError(null);
-      const res = await getTasks(filters);
-      setTasks(res.data || []);
-    } catch (err) {
-      setError('Could not connect to task server. Please ensure the backend is running.');
+      const res = await getTasks(queryParams);
+      if (current === requestId.current) setTasks(res.data || []);
+    } catch {
+      if (current === requestId.current) {
+        setError("Couldn't reach the task server. Check that the backend is running, then try again.");
+      }
     } finally {
-      setLoading(false);
+      if (current === requestId.current) setLoading(false);
     }
-  }, [filters]);
+  }, [queryParams]);
 
   useEffect(() => {
     checkDb();
+  }, [checkDb]);
+
+  useEffect(() => {
     fetchTaskList();
-  }, [fetchTaskList, checkDb]);
+  }, [fetchTaskList]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const hasActiveFilters =
+    Boolean(filters.search) ||
+    filters.status !== 'all' ||
+    filters.priority !== 'all' ||
+    filters.category !== 'all';
+
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setIsModalOpen(true);
   };
 
   const handleSaveTask = async (taskData) => {
@@ -86,16 +119,16 @@ export default function App() {
       setIsSubmitting(true);
       if (editingTask) {
         await updateTask(editingTask._id, taskData);
-        showToast('Task updated successfully!', 'success');
+        showToast('Task updated', 'success');
       } else {
         await createTask(taskData);
-        showToast('New task created successfully!', 'success');
+        showToast('Task created', 'success');
       }
       setIsModalOpen(false);
       setEditingTask(null);
       fetchTaskList();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to save task', 'error');
+      showToast(err.response?.data?.message || "Couldn't save the task. Please try again.", 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -115,10 +148,10 @@ export default function App() {
         )
       );
       const res = await toggleTaskCompleted(id);
-      showToast(res.message || 'Task status updated!', 'info');
+      showToast(res.message || 'Task status updated', 'info');
       fetchTaskList();
-    } catch (err) {
-      showToast('Failed to update task status', 'error');
+    } catch {
+      showToast("Couldn't update the task status", 'error');
       fetchTaskList();
     }
   };
@@ -128,11 +161,11 @@ export default function App() {
     try {
       setIsSubmitting(true);
       await deleteTask(deletingTask._id);
-      showToast('Task deleted successfully', 'success');
+      showToast('Task deleted', 'success');
       setDeletingTask(null);
       fetchTaskList();
-    } catch (err) {
-      showToast('Failed to delete task', 'error');
+    } catch {
+      showToast("Couldn't delete the task", 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,40 +174,48 @@ export default function App() {
   const handleImportGitHubIssue = async (issueData) => {
     try {
       await createTask(issueData);
-      showToast(`Imported "${issueData.title.slice(0, 30)}..." as task`, 'success');
+      const { title } = issueData;
+      showToast(`Imported “${title.length > 40 ? `${title.slice(0, 40)}…` : title}”`, 'success');
       fetchTaskList();
-    } catch (err) {
-      showToast('Failed to import GitHub issue', 'error');
+      return true;
+    } catch {
+      showToast("Couldn't import the GitHub issue", 'error');
+      return false;
     }
   };
 
   const handleAddFromWeather = async (weatherTask) => {
     try {
       await createTask(weatherTask);
-      showToast('Weather recommendation added as task!', 'success');
+      showToast('Weather tip added as a task', 'success');
       fetchTaskList();
-    } catch (err) {
-      showToast('Failed to add weather task', 'error');
+      return true;
+    } catch {
+      showToast("Couldn't add the weather task", 'error');
+      return false;
     }
   };
 
+  const isInitialLoad = loading && tasks.length === 0 && !error;
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navbar
-        onOpenCreateModal={() => {
-          setEditingTask(null);
-          setIsModalOpen(true);
-        }}
+        onOpenCreateModal={openCreateModal}
         onToggleWeather={() => setIsWeatherOpen((prev) => !prev)}
         isWeatherOpen={isWeatherOpen}
         onToggleGitHub={() => setIsGitHubOpen(true)}
-        isGitHubOpen={isGitHubOpen}
         dbStatus={dbStatus}
-        onRefresh={fetchTaskList}
-        isLoading={loading}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{TODAY_LABEL}</p>
+          <h1 className="mt-0.5 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            My tasks
+          </h1>
+        </div>
+
         <TaskStats tasks={tasks} />
 
         {isWeatherOpen && (
@@ -184,113 +225,111 @@ export default function App() {
           />
         )}
 
-        <FilterBar
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-        />
+        <div className="space-y-4">
+          <FilterBar
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            taskCount={tasks.length}
+            isRefreshing={loading && !isInitialLoad}
+            onRefresh={fetchTaskList}
+          />
 
-        {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-xs sm:text-sm text-rose-300 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={fetchTaskList}
-              className="px-3 py-1.5 rounded-xl bg-rose-800/60 hover:bg-rose-700 text-white font-medium text-xs transition cursor-pointer"
+          {error && (
+            <div
+              role="alert"
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-danger-soft p-4 text-sm text-danger-soft-foreground"
             >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {loading && tasks.length === 0 ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-slate-400">Loading your tasks...</p>
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className="py-16 px-6 text-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 flex flex-col items-center justify-center">
-            <div className="w-16 h-16 rounded-3xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center mb-4">
-              <Inbox className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-white">No tasks found</h3>
-            <p className="mt-1 text-xs sm:text-sm text-slate-400 max-w-sm">
-              {filters.search || filters.status !== 'all' || filters.priority !== 'all'
-                ? 'No tasks match your current filter criteria. Try adjusting or clearing filters.'
-                : 'Your task board is clear! Create your first task to start organizing your workflow.'}
-            </p>
-            <div className="mt-6 flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setEditingTask(null);
-                  setIsModalOpen(true);
-                }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/30 transition cursor-pointer"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                <span>Create Task</span>
+              <span className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                {error}
+              </span>
+              <button type="button" onClick={fetchTaskList} className="btn btn-secondary h-9 shrink-0">
+                Try again
               </button>
-              {(filters.search ||
-                filters.status !== 'all' ||
-                filters.priority !== 'all' ||
-                filters.category !== 'all') && (
-                <button
-                  onClick={() =>
-                    setFilters({
-                      search: '',
-                      status: 'all',
-                      priority: 'all',
-                      category: 'all',
-                      sortBy: 'newest',
-                    })
-                  }
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-medium transition cursor-pointer"
-                >
-                  Clear Filters
-                </button>
-              )}
             </div>
-          </div>
-        ) : (
-          <div
-            className={
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-                : 'space-y-3'
-            }
-          >
-            {tasks.map((task) => (
-              <TaskItem
-                key={task._id}
-                task={task}
-                onToggleComplete={handleToggleComplete}
-                onEdit={(t) => {
-                  setEditingTask(t);
-                  setIsModalOpen(true);
-                }}
-                onDelete={() => setDeletingTask(task)}
-                viewMode={viewMode}
-              />
-            ))}
-          </div>
-        )}
+          )}
+
+          {isInitialLoad ? (
+            <ul className="flex flex-col gap-3" aria-busy="true" aria-label="Loading tasks">
+              {[0, 1, 2, 3].map((i) => (
+                <li key={i} className="card flex items-start gap-4 p-4">
+                  <div className="skeleton size-5 shrink-0" />
+                  <div className="flex-1 space-y-2.5">
+                    <div className="skeleton h-4 w-2/5" />
+                    <div className="skeleton h-3 w-4/5" />
+                    <div className="flex gap-2 pt-1">
+                      <div className="skeleton h-5 w-16 rounded-full" />
+                      <div className="skeleton h-5 w-20 rounded-full" />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : tasks.length === 0 && !error ? (
+            <div className="card border-dashed flex flex-col items-center px-6 py-14 text-center">
+              <span className="flex size-12 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-foreground">
+                {hasActiveFilters ? <SearchX className="size-6" /> : <Inbox className="size-6" />}
+              </span>
+              <h2 className="mt-4 text-lg font-semibold text-foreground">
+                {hasActiveFilters ? 'No matching tasks' : 'No tasks yet'}
+              </h2>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                {hasActiveFilters
+                  ? 'Nothing matches these filters. Try a different search or clear the filters.'
+                  : 'Your board is clear. Create a task to start organizing your work.'}
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters(DEFAULT_FILTERS)}
+                    className="btn btn-secondary"
+                  >
+                    Clear filters
+                  </button>
+                )}
+                <button type="button" onClick={openCreateModal} className="btn btn-primary">
+                  <Plus className="size-4" strokeWidth={2.5} />
+                  New task
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ul
+              aria-label="Tasks"
+              aria-busy={loading}
+              className={
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4'
+                  : 'flex flex-col gap-3'
+              }
+            >
+              {tasks.map((task) => (
+                <TaskItem
+                  key={task._id}
+                  task={task}
+                  onToggleComplete={handleToggleComplete}
+                  onEdit={(t) => {
+                    setEditingTask(t);
+                    setIsModalOpen(true);
+                  }}
+                  onDelete={() => setDeletingTask(task)}
+                  viewMode={viewMode}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
       </main>
 
-      <footer className="mt-auto border-t border-slate-800/80 bg-slate-900/60 backdrop-blur-md py-6 text-center text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-300">TaskMaster Pro</span>
-            <span>• Full Stack REST Application</span>
-          </div>
-          <div className="flex items-center gap-4 text-slate-400">
-            <span>React.js + Tailwind CSS</span>
-            <span>• Node.js & Express</span>
-            <span>• MongoDB Mongoose</span>
-            <span>• Open-Meteo & GitHub APIs</span>
-          </div>
+      <footer className="mt-12 border-t border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-muted-foreground">
+          <p>
+            <span className="font-semibold text-foreground">TaskMaster Pro</span> · Full-stack REST app
+          </p>
+          <p className="text-center">React · Tailwind · Express · MongoDB · Open-Meteo &amp; GitHub APIs</p>
         </div>
       </footer>
 
@@ -319,7 +358,7 @@ export default function App() {
         onImportIssue={handleImportGitHubIssue}
       />
 
-      <NotificationToast toast={toast} onClose={() => setToast(null)} />
+      <NotificationToast toast={toast} onClose={dismissToast} />
     </div>
   );
 }

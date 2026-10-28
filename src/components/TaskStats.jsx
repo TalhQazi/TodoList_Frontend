@@ -1,101 +1,90 @@
 import React from 'react';
-import { CheckCircle2, Clock, ListTodo, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Clock, ListTodo, Flag } from 'lucide-react';
+
+const isDone = (t) => t.completed || t.status === 'completed';
 
 export default function TaskStats({ tasks = [] }) {
   const total = tasks.length;
-  const completed = tasks.filter((t) => t.completed).length;
-  const inProgress = tasks.filter((t) => !t.completed && t.status === 'in-progress').length;
+  const completed = tasks.filter(isDone).length;
+  const inProgress = tasks.filter((t) => !isDone(t) && t.status === 'in-progress').length;
   const highPriority = tasks.filter(
-    (t) => !t.completed && (t.priority === 'urgent' || t.priority === 'high')
+    (t) => !isDone(t) && (t.priority === 'urgent' || t.priority === 'high')
   ).length;
 
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const stats = [
     {
-      title: 'Total Tasks',
+      title: 'Total',
       value: total,
-      subtext: `${total - completed} active`,
+      subtext: `${total - completed} still open`,
       icon: ListTodo,
-      color: 'from-blue-500 to-indigo-600',
-      bgGlow: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+      tone: 'bg-primary-soft text-primary-soft-foreground',
     },
     {
-      title: 'In Progress',
+      title: 'In progress',
       value: inProgress,
-      subtext: 'Currently working on',
+      subtext: 'Being worked on',
       icon: Clock,
-      color: 'from-amber-500 to-orange-600',
-      bgGlow: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+      tone: 'bg-info-soft text-info-soft-foreground',
     },
     {
       title: 'Completed',
       value: completed,
-      subtext: `${completionRate}% completion rate`,
       icon: CheckCircle2,
-      color: 'from-emerald-500 to-teal-600',
-      bgGlow: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+      tone: 'bg-success-soft text-success-soft-foreground',
       progress: completionRate,
     },
     {
-      title: 'Urgent / High',
+      title: 'High priority',
       value: highPriority,
-      subtext: highPriority > 0 ? 'Requires attention' : 'All clear',
-      icon: AlertTriangle,
-      color: 'from-rose-500 to-red-600',
-      bgGlow: 'bg-rose-500/10 border-rose-500/20 text-rose-400',
+      subtext: highPriority > 0 ? 'Needs attention' : 'All clear',
+      icon: Flag,
+      tone: 'bg-accent-soft text-accent-soft-foreground',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {stats.map((stat, idx) => {
+    <section aria-label="Task summary" className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {stats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <div
-            key={idx}
-            className="relative overflow-hidden rounded-2xl bg-slate-900/60 border border-slate-800/80 p-5 shadow-lg shadow-black/20 hover:border-slate-700/80 transition-all duration-300 group"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  {stat.title}
-                </p>
-                <h3 className="text-3xl font-extrabold text-white mt-1">
-                  {stat.value}
-                </h3>
-              </div>
-              <div
-                className={`p-3 rounded-2xl border ${stat.bgGlow} transition-transform duration-300 group-hover:scale-110`}
-              >
-                <Icon className="w-6 h-6" />
-              </div>
+          <div key={stat.title} className="card p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+              <span className={`flex items-center justify-center size-8 rounded-lg ${stat.tone}`}>
+                <Icon className="size-4" />
+              </span>
             </div>
+            <p className="mt-1 text-2xl sm:text-3xl font-bold tabular-nums text-foreground">
+              {stat.value}
+            </p>
 
-            <div className="mt-4">
-              {stat.progress !== undefined ? (
-                <div>
-                  <div className="flex justify-between text-xs text-slate-400 mb-1.5 font-medium">
-                    <span>Progress</span>
-                    <span className="text-emerald-400 font-semibold">{stat.progress}%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-                      style={{ width: `${stat.progress}%` }}
-                    />
-                  </div>
+            {stat.progress !== undefined ? (
+              <div className="mt-3">
+                <div
+                  role="progressbar"
+                  aria-label="Completion rate"
+                  aria-valuenow={stat.progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-1.5 w-full rounded-full bg-muted overflow-hidden"
+                >
+                  <div
+                    className="h-full rounded-full bg-success transition-[width] duration-500 ease-out"
+                    style={{ width: `${stat.progress}%` }}
+                  />
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                  {stat.subtext}
+                <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                  {stat.progress}% done
                 </p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">{stat.subtext}</p>
+            )}
           </div>
         );
       })}
-    </div>
+    </section>
   );
 }

@@ -1,12 +1,63 @@
 import React from 'react';
-import {
-  Check,
-  Calendar,
-  Tag,
-  Edit3,
-  Trash2,
-  Folder,
-} from 'lucide-react';
+import { Check, Calendar, Pencil, Trash2, Folder, AlertCircle } from 'lucide-react';
+
+const PRIORITY_CONFIG = {
+  urgent: { label: 'Urgent', className: 'bg-danger-soft text-danger-soft-foreground' },
+  high: { label: 'High', className: 'bg-accent-soft text-accent-soft-foreground' },
+  medium: { label: 'Medium', className: 'bg-info-soft text-info-soft-foreground' },
+  low: { label: 'Low', className: 'bg-muted text-muted-foreground' },
+};
+
+const MAX_VISIBLE_TAGS = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const getDueDateInfo = (dateString, isCompleted) => {
+  if (!dateString) return null;
+  const raw = new Date(dateString);
+  if (Number.isNaN(raw.getTime())) return null;
+
+  const due = new Date(raw.getUTCFullYear(), raw.getUTCMonth(), raw.getUTCDate());
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((due - today) / DAY_MS);
+
+  const formatted = due.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: due.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  });
+
+  if (isCompleted) return { label: formatted, tone: 'plain' };
+  if (diffDays < 0) return { label: `Overdue · ${formatted}`, tone: 'overdue' };
+  if (diffDays === 0) return { label: 'Due today', tone: 'today' };
+  if (diffDays === 1) return { label: 'Due tomorrow', tone: 'plain' };
+  return { label: formatted, tone: 'plain' };
+};
+
+function DueDate({ info }) {
+  if (info.tone === 'overdue') {
+    return (
+      <span className="chip bg-danger-soft text-danger-soft-foreground">
+        <AlertCircle className="size-3.5" />
+        {info.label}
+      </span>
+    );
+  }
+  if (info.tone === 'today') {
+    return (
+      <span className="chip bg-warning-soft text-warning-soft-foreground">
+        <Calendar className="size-3.5" />
+        {info.label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+      <Calendar className="size-3.5" />
+      {info.label}
+    </span>
+  );
+}
 
 export default function TaskItem({
   task,
@@ -16,251 +67,153 @@ export default function TaskItem({
   viewMode = 'list',
 }) {
   const isCompleted = task.completed || task.status === 'completed';
+  const priority = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
+  const dueDateInfo = getDueDateInfo(task.dueDate, isCompleted);
+  const tags = Array.isArray(task.tags) ? task.tags : [];
+  const hiddenTagCount = tags.length - MAX_VISIBLE_TAGS;
 
-  const priorityConfig = {
-    urgent: {
-      label: 'Urgent',
-      badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-      dot: 'bg-rose-400 animate-pulse',
-    },
-    high: {
-      label: 'High',
-      badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-      dot: 'bg-amber-400',
-    },
-    medium: {
-      label: 'Medium',
-      badge: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-      dot: 'bg-blue-400',
-    },
-    low: {
-      label: 'Low',
-      badge: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-      dot: 'bg-slate-400',
-    },
-  };
+  const checkbox = (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={isCompleted}
+      aria-label={`Complete "${task.title}"`}
+      onClick={() => onToggleComplete(task._id)}
+      className="group/check -m-2 flex size-10 shrink-0 items-center justify-center rounded-lg"
+    >
+      <span
+        className={`flex size-5 items-center justify-center rounded-md border-2 transition-colors duration-150 ${
+          isCompleted
+            ? 'border-success bg-success text-success-foreground'
+            : 'border-input group-hover/check:border-primary'
+        }`}
+      >
+        {isCompleted && <Check className="size-3.5" strokeWidth={3} />}
+      </span>
+    </button>
+  );
 
-  const priority = priorityConfig[task.priority] || priorityConfig.medium;
+  const title = (
+    <h3
+      className={`text-[15px] sm:text-base font-semibold leading-snug break-words ${
+        viewMode === 'grid' ? 'line-clamp-3' : ''
+      } ${
+        isCompleted
+          ? 'text-muted-foreground line-through decoration-muted-foreground/60'
+          : 'text-foreground'
+      }`}
+    >
+      {task.title}
+    </h3>
+  );
 
-  const formatDueDate = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    const now = new Date();
-    const isPast = date < now && !isCompleted;
-    const formatted = date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-    });
-    return { formatted, isPast };
-  };
+  const actions = (
+    <div className="flex shrink-0 items-center">
+      <button
+        type="button"
+        onClick={() => onEdit(task)}
+        aria-label={`Edit "${task.title}"`}
+        title="Edit"
+        className="icon-btn size-9"
+      >
+        <Pencil className="size-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(task._id)}
+        aria-label={`Delete "${task.title}"`}
+        title="Delete"
+        className="icon-btn size-9 hover:bg-danger-soft hover:text-danger-soft-foreground"
+      >
+        <Trash2 className="size-4" />
+      </button>
+    </div>
+  );
 
-  const dueDateInfo = formatDueDate(task.dueDate);
+  const priorityChip = (
+    <span className={`chip ${priority.className}`}>
+      <span className="size-1.5 rounded-full bg-current" />
+      {priority.label}
+      <span className="sr-only"> priority</span>
+    </span>
+  );
+
+  const categoryChip = (
+    <span className="chip bg-muted text-muted-foreground">
+      <Folder className="size-3.5" />
+      {task.category || 'General'}
+    </span>
+  );
+
+  const tagList = tags.length > 0 && (
+    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+      {tags.slice(0, MAX_VISIBLE_TAGS).map((tag, idx) => (
+        <span key={`${tag}-${idx}`}>#{tag}</span>
+      ))}
+      {hiddenTagCount > 0 && <span>+{hiddenTagCount} more</span>}
+    </span>
+  );
+
+  const description = task.description && (
+    <p
+      className={`mt-1 text-sm text-muted-foreground break-words ${
+        viewMode === 'grid' ? 'line-clamp-3' : 'line-clamp-2'
+      }`}
+    >
+      {task.description}
+    </p>
+  );
 
   if (viewMode === 'grid') {
     return (
-      <div
-        className={`group relative flex flex-col justify-between rounded-2xl p-5 border transition-all duration-300 ${
-          isCompleted
-            ? 'bg-slate-900/40 border-slate-800/60 opacity-75'
-            : 'bg-slate-900/70 border-slate-800 hover:border-slate-700 hover:shadow-xl hover:shadow-black/30'
-        }`}
-      >
-        <div>
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${priority.badge}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${priority.dot}`} />
-              {priority.label}
-            </span>
-
-            <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/60">
-              <Folder className="w-3 h-3 text-indigo-400" />
-              {task.category || 'General'}
-            </span>
+      <li className="card flex flex-col p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            {priorityChip}
+            {categoryChip}
           </div>
+          <div className="-mr-2 -my-1">{actions}</div>
+        </div>
 
+        <div className="mt-3 flex-1">
           <div className="flex items-start gap-3">
-            <button
-              onClick={() => onToggleComplete(task._id)}
-              className={`mt-1 shrink-0 w-5 h-5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                isCompleted
-                  ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/50'
-                  : 'border-slate-600 hover:border-indigo-400 bg-slate-800/80'
-              }`}
-            >
-              {isCompleted && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-            </button>
-
-            <h4
-              className={`text-sm sm:text-base font-semibold leading-snug transition-all ${
-                isCompleted
-                  ? 'line-through text-slate-500'
-                  : 'text-white group-hover:text-indigo-200'
-              }`}
-            >
-              {task.title}
-            </h4>
+            {checkbox}
+            <div className="min-w-0 flex-1 pt-px">{title}</div>
           </div>
-
-          {task.description && (
-            <p
-              className={`mt-2.5 text-xs text-slate-400 line-clamp-3 leading-relaxed ${
-                isCompleted ? 'line-through opacity-70' : ''
-              }`}
-            >
-              {task.description}
-            </p>
-          )}
-
-          {task.tags && task.tags.length > 0 && (
-            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-              {task.tags.map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-slate-800/80 text-slate-400 border border-slate-700/50"
-                >
-                  <Tag className="w-2.5 h-2.5 text-indigo-400" />
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+          {description}
+          {tagList && <div className="mt-2">{tagList}</div>}
         </div>
 
-        <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-          <div>
-            {dueDateInfo ? (
-              <span
-                className={`inline-flex items-center gap-1 ${
-                  dueDateInfo.isPast ? 'text-rose-400 font-semibold' : 'text-slate-400'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>{dueDateInfo.formatted}</span>
-              </span>
-            ) : (
-              <span className="text-slate-500 text-[11px]">No due date</span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onEdit(task)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => onDelete(task._id)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="mt-4 pt-3 border-t border-border">
+          {dueDateInfo ? (
+            <DueDate info={dueDateInfo} />
+          ) : (
+            <span className="text-xs text-muted-foreground">No due date</span>
+          )}
         </div>
-      </div>
+      </li>
     );
   }
 
   return (
-    <div
-      className={`group relative flex items-center justify-between gap-4 rounded-2xl p-4 sm:p-5 border transition-all duration-200 ${
-        isCompleted
-          ? 'bg-slate-900/35 border-slate-800/50'
-          : 'bg-slate-900/75 border-slate-800 hover:border-slate-700/80 hover:shadow-lg hover:shadow-black/20'
-      }`}
-    >
-      <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
-        <button
-          onClick={() => onToggleComplete(task._id)}
-          className={`mt-0.5 sm:mt-0 shrink-0 w-5 h-5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-            isCompleted
-              ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/50'
-              : 'border-slate-600 hover:border-indigo-400 bg-slate-800/80'
-          }`}
-        >
-          {isCompleted && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-        </button>
+    <li className="card flex items-start gap-3 p-3 pl-4 sm:p-4">
+      <div className="pt-0.5">{checkbox}</div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4
-              className={`text-sm sm:text-base font-semibold leading-tight truncate transition-all ${
-                isCompleted
-                  ? 'line-through text-slate-500'
-                  : 'text-white group-hover:text-indigo-200'
-              }`}
-            >
-              {task.title}
-            </h4>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1 pt-0.5">{title}</div>
+          <div className="-mr-1 -mt-1.5">{actions}</div>
+        </div>
 
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold border ${priority.badge}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${priority.dot}`} />
-              {priority.label}
-            </span>
+        {description}
 
-            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-              <Folder className="w-3 h-3 text-indigo-400" />
-              {task.category || 'General'}
-            </span>
-          </div>
-
-          {task.description && (
-            <p
-              className={`mt-1 text-xs text-slate-400 line-clamp-1 ${
-                isCompleted ? 'line-through opacity-70' : ''
-              }`}
-            >
-              {task.description}
-            </p>
-          )}
-
-          <div className="mt-2 flex items-center gap-3 text-xs text-slate-400 flex-wrap">
-            {dueDateInfo && (
-              <span
-                className={`inline-flex items-center gap-1 text-[11px] ${
-                  dueDateInfo.isPast ? 'text-rose-400 font-semibold' : 'text-slate-400'
-                }`}
-              >
-                <Calendar className="w-3 h-3" />
-                <span>{dueDateInfo.formatted}</span>
-              </span>
-            )}
-
-            {task.tags && task.tags.length > 0 && (
-              <div className="flex items-center gap-1">
-                {task.tags.map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/50"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          {priorityChip}
+          {categoryChip}
+          {dueDateInfo && <DueDate info={dueDateInfo} />}
+          {tagList}
         </div>
       </div>
-
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          onClick={() => onEdit(task)}
-          className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-        >
-          <Edit3 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onDelete(task._id)}
-          className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
+    </li>
   );
 }

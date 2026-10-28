@@ -1,158 +1,196 @@
 import React from 'react';
 import {
   Search,
-  Filter,
+  Flag,
+  Folder,
   ArrowUpDown,
   LayoutGrid,
   List,
+  RefreshCw,
   X,
 } from 'lucide-react';
+import Select from './Select';
+
+const STATUS_TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'in-progress', label: 'In progress' },
+  { id: 'completed', label: 'Completed' },
+];
+
+const PRIORITIES = [
+  { id: 'all', label: 'All priorities' },
+  { id: 'urgent', label: 'Urgent' },
+  { id: 'high', label: 'High' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'low', label: 'Low' },
+];
+
+const SORT_OPTIONS = [
+  { id: 'newest', label: 'Newest first' },
+  { id: 'oldest', label: 'Oldest first' },
+  { id: 'dueDate', label: 'Due date' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'title', label: 'Title (A–Z)' },
+];
+
+const VIEW_MODES = [
+  { id: 'list', label: 'List view', icon: List },
+  { id: 'grid', label: 'Grid view', icon: LayoutGrid },
+];
+
+const segmentClass = (isActive) =>
+  `h-9 rounded-md text-sm font-medium transition-colors duration-150 ${
+    isActive
+      ? 'bg-surface text-foreground shadow-sm shadow-black/5'
+      : 'text-muted-foreground hover:text-foreground'
+  }`;
 
 export default function FilterBar({
   filters,
   onFilterChange,
   viewMode,
   onViewModeChange,
+  taskCount,
+  isRefreshing,
+  onRefresh,
   categories = ['Work', 'Personal', 'Development', 'Design', 'General'],
 }) {
-  const statusTabs = [
-    { id: 'all', label: 'All Tasks' },
-    { id: 'pending', label: 'Pending' },
-    { id: 'in-progress', label: 'In Progress' },
-    { id: 'completed', label: 'Completed' },
-  ];
-
-  const priorities = [
-    { id: 'all', label: 'All Priorities' },
-    { id: 'urgent', label: 'Urgent' },
-    { id: 'high', label: 'High' },
-    { id: 'medium', label: 'Medium' },
-    { id: 'low', label: 'Low' },
-  ];
-
-  const sortOptions = [
-    { id: 'newest', label: 'Newest First' },
-    { id: 'oldest', label: 'Oldest First' },
-    { id: 'dueDate', label: 'Due Date' },
-    { id: 'priority', label: 'Priority' },
-    { id: 'title', label: 'Title (A-Z)' },
-  ];
-
   return (
-    <div className="mb-6 space-y-4">
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+    <section aria-label="Filter and sort tasks" className="space-y-3">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
-            type="text"
+            type="search"
             value={filters.search}
             onChange={(e) => onFilterChange('search', e.target.value)}
-            placeholder="Search tasks by title, keyword, or description..."
-            className="w-full pl-10 pr-9 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-inner"
+            placeholder="Search tasks…"
+            aria-label="Search tasks by title or description"
+            className="field pl-9 pr-10 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {filters.search && (
             <button
+              type="button"
               onClick={() => onFilterChange('search', '')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+              aria-label="Clear search"
+              className="icon-btn size-8 absolute right-1 top-1/2 -translate-y-1/2"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="size-4" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          <div className="relative">
-            <select
-              value={filters.priority}
-              onChange={(e) => onFilterChange('priority', e.target.value)}
-              className="appearance-none pl-8 pr-8 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl text-xs sm:text-sm text-slate-300 hover:text-white focus:outline-none focus:border-indigo-500 transition cursor-pointer"
-            >
-              {priorities.map((p) => (
-                <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <Filter className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
-
-          <div className="relative">
-            <select
-              value={filters.category}
-              onChange={(e) => onFilterChange('category', e.target.value)}
-              className="appearance-none px-4 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl text-xs sm:text-sm text-slate-300 hover:text-white focus:outline-none focus:border-indigo-500 transition cursor-pointer"
-            >
-              <option value="all" className="bg-slate-900 text-white">
-                All Categories
+        <div className="flex flex-wrap gap-2">
+          <Select
+            icon={Flag}
+            value={filters.priority}
+            onChange={(e) => onFilterChange('priority', e.target.value)}
+            aria-label="Filter by priority"
+            className="flex-1 min-w-[9.5rem] lg:flex-none lg:w-40"
+          >
+            {PRIORITIES.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
               </option>
-              {categories.map((c) => (
-                <option key={c} value={c} className="bg-slate-900 text-white">
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+            ))}
+          </Select>
 
-          <div className="relative">
-            <select
-              value={filters.sortBy}
-              onChange={(e) => onFilterChange('sortBy', e.target.value)}
-              className="appearance-none pl-8 pr-8 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl text-xs sm:text-sm text-slate-300 hover:text-white focus:outline-none focus:border-indigo-500 transition cursor-pointer"
-            >
-              {sortOptions.map((s) => (
-                <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <ArrowUpDown className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
+          <Select
+            icon={Folder}
+            value={filters.category}
+            onChange={(e) => onFilterChange('category', e.target.value)}
+            aria-label="Filter by category"
+            className="flex-1 min-w-[9.5rem] lg:flex-none lg:w-44"
+          >
+            <option value="all">All categories</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
 
-          <div className="flex items-center bg-slate-900/80 border border-slate-800 rounded-2xl p-1">
-            <button
-              onClick={() => onViewModeChange('list')}
-              className={`p-1.5 rounded-xl transition ${
-                viewMode === 'list'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="List view"
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onViewModeChange('grid')}
-              className={`p-1.5 rounded-xl transition ${
-                viewMode === 'grid'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Grid view"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-          </div>
+          <Select
+            icon={ArrowUpDown}
+            value={filters.sortBy}
+            onChange={(e) => onFilterChange('sortBy', e.target.value)}
+            aria-label="Sort tasks"
+            className="flex-1 min-w-[9.5rem] lg:flex-none lg:w-40"
+          >
+            {SORT_OPTIONS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {statusTabs.map((tab) => {
-          const isActive = filters.status === tab.id;
-          return (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          role="group"
+          aria-label="Filter by status"
+          className="flex w-full sm:w-auto overflow-x-auto no-scrollbar rounded-lg bg-muted p-1"
+        >
+          {STATUS_TABS.map((tab) => {
+            const isActive = filters.status === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onFilterChange('status', tab.id)}
+                aria-pressed={isActive}
+                className={`flex-1 sm:flex-none shrink-0 px-3 whitespace-nowrap ${segmentClass(isActive)}`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex w-full sm:w-auto items-center justify-between sm:justify-end gap-2">
+          <p role="status" className="text-sm text-muted-foreground tabular-nums">
+            {isRefreshing ? (
+              'Updating…'
+            ) : (
+              <>
+                <span className="sr-only">Showing </span>
+                {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
+              </>
+            )}
+          </p>
+
+          <div className="flex items-center gap-2">
             <button
-              key={tab.id}
-              onClick={() => onFilterChange('status', tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 shrink-0 cursor-pointer ${
-                isActive
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 border border-slate-800/80'
-              }`}
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              aria-label="Refresh tasks"
+              title="Refresh"
+              className="icon-btn"
             >
-              {tab.label}
+              <RefreshCw className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
-          );
-        })}
+
+            <div role="group" aria-label="Layout" className="flex rounded-lg bg-muted p-1">
+              {VIEW_MODES.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onViewModeChange(id)}
+                  aria-pressed={viewMode === id}
+                  aria-label={label}
+                  title={label}
+                  className={`w-9 flex items-center justify-center ${segmentClass(viewMode === id)}`}
+                >
+                  <Icon className="size-4" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
