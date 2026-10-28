@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import Select from './Select';
+import GithubIcon from './GithubIcon';
 
 const STATUS_TABS = [
   { id: 'all', label: 'All' },
@@ -54,6 +55,7 @@ export default function FilterBar({
   taskCount,
   isRefreshing,
   onRefresh,
+  onImportGitHub,
   categories = ['Work', 'Personal', 'Development', 'Design', 'General'],
 }) {
   return (
@@ -162,6 +164,17 @@ export default function FilterBar({
           </p>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onImportGitHub}
+              aria-haspopup="dialog"
+              aria-label="Import from GitHub"
+              className="btn btn-secondary h-9 px-3"
+            >
+              <GithubIcon className="size-4" />
+              Import<span className="hidden sm:inline"> from GitHub</span>
+            </button>
+
             <button
               type="button"
               onClick={onRefresh}

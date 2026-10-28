@@ -15,7 +15,6 @@ import {
   updateTask,
   deleteTask,
   toggleTaskCompleted,
-  getSystemHealth,
 } from './services/api';
 import { Plus, Inbox, SearchX, AlertCircle } from 'lucide-react';
 
@@ -37,7 +36,6 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [dbStatus, setDbStatus] = useState(null);
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState('list');
@@ -53,9 +51,6 @@ export default function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [deletingTask, setDeletingTask] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isWeatherOpen, setIsWeatherOpen] = useState(
-    () => window.matchMedia('(min-width: 1024px)').matches
-  );
   const [isGitHubOpen, setIsGitHubOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
@@ -65,15 +60,6 @@ export default function App() {
   };
 
   const dismissToast = useCallback(() => setToast(null), []);
-
-  const checkDb = useCallback(async () => {
-    try {
-      const res = await getSystemHealth();
-      setDbStatus(res.database);
-    } catch {
-      setDbStatus({ connected: false, mode: 'Fallback API' });
-    }
-  }, []);
 
   const fetchTaskList = useCallback(async () => {
     const current = ++requestId.current;
@@ -90,10 +76,6 @@ export default function App() {
       if (current === requestId.current) setLoading(false);
     }
   }, [queryParams]);
-
-  useEffect(() => {
-    checkDb();
-  }, [checkDb]);
 
   useEffect(() => {
     fetchTaskList();
@@ -200,13 +182,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <Navbar
-        onOpenCreateModal={openCreateModal}
-        onToggleWeather={() => setIsWeatherOpen((prev) => !prev)}
-        isWeatherOpen={isWeatherOpen}
-        onToggleGitHub={() => setIsGitHubOpen(true)}
-        dbStatus={dbStatus}
-      />
+      <Navbar onOpenCreateModal={openCreateModal} />
 
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         <div>
@@ -218,12 +194,7 @@ export default function App() {
 
         <TaskStats tasks={tasks} />
 
-        {isWeatherOpen && (
-          <WeatherWidget
-            onClose={() => setIsWeatherOpen(false)}
-            onAddTaskFromWeather={handleAddFromWeather}
-          />
-        )}
+        <WeatherWidget onAddTaskFromWeather={handleAddFromWeather} />
 
         <div className="space-y-4">
           <FilterBar
@@ -234,6 +205,7 @@ export default function App() {
             taskCount={tasks.length}
             isRefreshing={loading && !isInitialLoad}
             onRefresh={fetchTaskList}
+            onImportGitHub={() => setIsGitHubOpen(true)}
           />
 
           {error && (
